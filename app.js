@@ -9,23 +9,31 @@ app.use(express.static(pub));
 var serialport = require("serialport");
 var SerialPort = serialport.SerialPort;
 
-var port = new SerialPort("/dev/tty.usbserial-A9007WoZ", 
+var port = new SerialPort("/dev/tty.usbmodemfd121", 
 	{
 		baudrate: 9600,
 		parser: serialport.parsers.readline("\n")
 	}
 );
 
+var last;
+
 port.on('data', function(line){
-	var data = JSON.parse(line);
-	var last = data.sensor;
-	//console.log("primer last: "+last+" actual: "+data.sensor);
-	//if (data.sensor != last) {
-		if (data.sensor < 30 && data.sensor >15) {
-			//console.log("push");
-			io.emit('sensor', data.sensor);
-		}
-	//}
+	try {
+		var data = JSON.parse(line);
+		// console.log("primer last: "+last+" actual: "+data.sensor);
+		//if (data.sensor != last) {
+			if (data.sensor == 51) {
+				console.log(data.sensor);
+			}else if(last == 51 && data.sensor != 51){
+				console.log("push");
+				io.emit('sensor', data.sensor);
+			}
+		//}
+		last = data.sensor;
+	} catch (e) {
+		console.error(e);
+	}
 });
 
 app.get('/', function(req, res){

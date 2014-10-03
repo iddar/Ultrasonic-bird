@@ -1,4 +1,4 @@
-var game = new Phaser.Game(400, 490, Phaser.AUTO, 'gameDiv');
+var game = new Phaser.Game(800, 490, Phaser.AUTO, 'gameDiv');
 var socket = io();
 var self;
 
@@ -9,6 +9,7 @@ var mainState = {
 
         game.load.image('bird', 'assets/bird.png');  
         game.load.image('pipe', 'assets/pipe.png'); 
+        game.load.image('hole', 'assets/hole.png'); 
 
         // Load the jump sound
         game.load.audio('jump', 'assets/jump.wav');     
@@ -19,12 +20,16 @@ var mainState = {
 
         this.pipes = game.add.group();
         this.pipes.enableBody = true;
-        this.pipes.createMultiple(20, 'pipe');  
+        this.pipes.createMultiple(40, 'pipe');  
         this.timer = this.game.time.events.loop(1500, this.addRowOfPipes, this);           
 
         this.bird = this.game.add.sprite(100, 245, 'bird');
         game.physics.arcade.enable(this.bird);
         this.bird.body.gravity.y = 1000; 
+
+        this.holes = game.add.group();
+        this.holes.enableBody = true;
+        this.holes.createMultiple(6, 'hole');
 
         // New anchor position
         this.bird.anchor.setTo(-0.2, 0.5); 
@@ -36,7 +41,6 @@ var mainState = {
         self = this;
         socket.on('sensor', function(value){
             self.jump();
-            
         });
 
         this.score = 0;
@@ -56,11 +60,23 @@ var mainState = {
             this.restartGame(); 
         }
 
-        game.physics.arcade.overlap(this.bird, this.pipes, this.hitPipe, null, this); 
+        game.physics.arcade.overlap(this.bird, this.pipes, this.hitPipe, null, this);
+        game.physics.arcade.overlap(this.bird, this.holes, this.hitHole, null, this);
 
         // Slowly rotate the bird downward, up to a certain point.
         if (this.bird.angle < 20)
-            this.bird.angle += 1;     
+            this.bird.angle += 1;
+
+        if (this.bird.hit) {
+            if (!this.bird.score) {
+                this.bird.score = true;
+                this.score += 1;
+                this.labelScore.text = this.score;
+            }
+        } else {
+            this.bird.score = false;
+        }
+        this.bird.hit = false;
     },
 
     jump: function() {
@@ -92,6 +108,15 @@ var mainState = {
         this.pipes.forEachAlive(function(p){
             p.body.velocity.x = 0;
         }, this);
+        this.holes.forEachAlive(function(p){
+            p.body.velocity.x = 0;
+        }, this);
+    },
+
+    hitHole: function() {
+
+        this.bird.hit = true;
+    
     },
 
     restartGame: function() {
@@ -106,16 +131,23 @@ var mainState = {
         pipe.checkWorldBounds = true;
         pipe.outOfBoundsKill = true;
     },
+    addOneHole: function(x, y) {
+        var hole = this.holes.getFirstDead();
+
+        hole.reset(x, y);
+        hole.body.velocity.x = -200;  
+        hole.checkWorldBounds = true;
+        hole.outOfBoundsKill = true;
+    },
 
     addRowOfPipes: function() {
         var hole = Math.floor(Math.random()*5)+1;
         
         for (var i = 0; i < 8; i++)
             if (i != hole && i != hole +1) 
-                this.addOnePipe(400, i*60+10);   
-    
-        this.score += 1;
-        this.labelScore.text = this.score;  
+                this.addOnePipe(790, i*60+10);   
+            else if (i == hole)
+                this.addOneHole(800, i*60-90);
     },
 };
 
